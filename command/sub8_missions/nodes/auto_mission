@@ -5,6 +5,7 @@ from std_srvs.srv import Empty, EmptyResponse
 from twisted.internet import defer, reactor
 import txros
 from sub8 import tx_sub
+from sub8_ros_tools import rosmsg_to_numpy
 import missions
 
 
@@ -14,22 +15,25 @@ def run_mission(req, nh):
         sub = yield tx_sub.get_sub(nh)
         yield txros.util.wall_sleep(1.0)
 
-        print 'Mission runner waiting for pose to be available'
-        yield sub.last_pose()
-
-        print 'Mission runner got pose'
-
         # == MISSION CODE HERE ===================
         ret = yield missions.align_channel.run(sub)
         if ret is None:
             print "Fuck"
+            defer.returnValue(False)
 
-        # Buoys are around 2m from the ground
-        yield sub.to_height(2)
+        odom = yield sub.last_pose()
+        rotation = rosmsg_to_numpy(odom.pose.pose.orientation)
+
+        # Buoys are around 2m from the ground?
+        #yield sub.to_height(2)
 
         yield missions.buoy.run(sub)
-        yield sub.move.backward(.5).go()
-        yield sub.move.up(.5).go()
+
+        yield sub.move.backward(1).go()
+        yield sub.move.depth(1.5).go()
+        yield sub.move.set_orientation(rotation).zero_roll_and_pitch().go()
+
+        yield sub.move.forward(5).go()
 
         print "DONE"
 

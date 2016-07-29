@@ -17,6 +17,7 @@ def run(sub):
     ret = yield missions.align_channel.run(sub)
     if ret is None:
         print "Fuck"
+        defer.returnValue(False)
 
     odom = yield sub.last_pose()
     rotation = rosmsg_to_numpy(odom.pose.pose.orientation)
